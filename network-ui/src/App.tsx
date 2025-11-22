@@ -1,232 +1,155 @@
-import { useState, useEffect, useCallback } from 'react';
-import NetworkGraph from './components/NetworkGraph';
-import Sidebar from './components/Sidebar';
-import RightSidebar from './components/RightSidebar';
-import MobileBottomNav from './components/MobileBottomNav';
-import { WelcomeModal } from './components/WelcomeModal';
-import { fetchStats, fetchRelationships, fetchActorRelationships, fetchTagClusters, fetchActorCounts } from './api';
-import type { Stats, Relationship, TagCluster } from './types';
+import { useEffect, useMemo, useState } from "react";
+import NetworkGraph from "./components/NetworkGraph";
+import { fetchElectionGraph, searchElectionEntities, type SearchResult } from "./api";
+import type { ElectionNode, ElectionEdge } from "./types";
 
 function App() {
-  // Detect if mobile on initial load (lg breakpoint is 1024px in Tailwind)
-  const isMobile = window.innerWidth < 1024;
-
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [tagClusters, setTagClusters] = useState<TagCluster[]>([]);
-  const [relationships, setRelationships] = useState<Relationship[]>([]);
-  const [totalBeforeLimit, setTotalBeforeLimit] = useState<number>(0);
+  const [nodes, setNodes] = useState<ElectionNode[]>([]);
+  const [links, setLinks] = useState<ElectionEdge[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedActor, setSelectedActor] = useState<string | null>(null);
-  const [actorRelationships, setActorRelationships] = useState<Relationship[]>([]);
-  const [actorTotalBeforeFilter, setActorTotalBeforeFilter] = useState<number>(0);
-  const [limit, setLimit] = useState(isMobile ? 5000 : 9600);
-  const [maxHops, setMaxHops] = useState<number | null>(3); // Default 3 hops
-  const [minDensity, setMinDensity] = useState(50); // Default 50% density threshold
-  const [enabledClusterIds, setEnabledClusterIds] = useState<Set<number>>(new Set());
-  const [enabledCategories, setEnabledCategories] = useState<Set<string>>(new Set());
-  const [yearRange, setYearRange] = useState<[number, number]>([1980, 2025]);
-  const [includeUndated, setIncludeUndated] = useState(false);
-  const [keywords, setKeywords] = useState('');
-  const [actorTotalCounts, setActorTotalCounts] = useState<Record<string, number>>({});
-  const [showWelcome, setShowWelcome] = useState(() => {
-    // Check if user has seen the welcome message before
-    return !localStorage.getItem('hasSeenWelcome');
-  });
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
 
-  // Load tag clusters and stats on mount, then trigger initial data load
   useEffect(() => {
-    const initializeApp = async () => {
+    const loadGraph = async () => {
       try {
-        // Load tag clusters and stats in parallel
-        const [clusters, statsData] = await Promise.all([
-          fetchTagClusters(),
-          fetchStats()
-        ]);
-
-        // Batch all state updates together with a single render using a microtask
-        // This ensures enabledClusterIds and enabledCategories are set before the data loading effect runs
-        queueMicrotask(() => {
-          setTagClusters(clusters);
-          setEnabledClusterIds(new Set(clusters.map(c => c.id)));
-          setStats(statsData);
-          setEnabledCategories(new Set(statsData.categories.map(c => c.category)));
-          setIsInitialized(true);
-        });
+        setLoading(true);
+        const data = await fetchElectionGraph(150);
+        setNodes(data.nodes);
+        setLinks(data.links);
       } catch (error) {
-        console.error('Error initializing app:', error);
+        console.error("Error loading graph:", error);
+      } finally {
+        setLoading(false);
       }
     };
-    initializeApp();
+    loadGraph();
   }, []);
 
-  // Load data when limit, enabled clusters, enabled categories, year range, includeUndated, keywords, or maxHops change (but only after initialization)
   useEffect(() => {
-    if (isInitialized) {
-      loadData();
-    }
-  }, [isInitialized, limit, enabledClusterIds, enabledCategories, yearRange, includeUndated, keywords, maxHops]);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const clusterIds = Array.from(enabledClusterIds);
-      const categories = Array.from(enabledCategories);
-      const [relationshipsResponse, actorCounts] = await Promise.all([
-        fetchRelationships(limit, clusterIds, categories, yearRange, includeUndated, keywords, maxHops),
-        fetchActorCounts(300)
-      ]);
-      setRelationships(relationshipsResponse.relationships);
-      setTotalBeforeLimit(relationshipsResponse.totalBeforeLimit);
-      setActorTotalCounts(actorCounts);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleActorClick = useCallback((actorName: string) => {
-    setSelectedActor(prev => prev === actorName ? null : actorName);
-  }, []);
-
-  // Toggle tag cluster
-  const toggleCluster = useCallback((clusterId: number) => {
-    setEnabledClusterIds(prev => {
-      const next = new Set(prev);
-      if (next.has(clusterId)) {
-        next.delete(clusterId);
-      } else {
-        next.add(clusterId);
-      }
-      return next;
-    });
-  }, []);
-
-  // Toggle category
-  const toggleCategory = useCallback((category: string) => {
-    setEnabledCategories(prev => {
-      const next = new Set(prev);
-      if (next.has(category)) {
-        next.delete(category);
-      } else {
-        next.add(category);
-      }
-      return next;
-    });
-  }, []);
-
-  // Handle closing welcome modal
-  const handleCloseWelcome = useCallback(() => {
-    localStorage.setItem('hasSeenWelcome', 'true');
-    setShowWelcome(false);
-  }, []);
-
-  // Fetch actor-specific relationships when an actor is selected or clusters/categories/year range/includeUndated/keywords/maxHops change
-  useEffect(() => {
-    if (!selectedActor) {
-      setActorRelationships([]);
-      setActorTotalBeforeFilter(0);
+    if (searchQuery.trim().length < 2) {
+      setSearchResults([]);
       return;
     }
 
-    const loadActorRelationships = async () => {
+    const handle = setTimeout(async () => {
       try {
-        const clusterIds = Array.from(enabledClusterIds);
-        const categories = Array.from(enabledCategories);
-        const response = await fetchActorRelationships(selectedActor, clusterIds, categories, yearRange, includeUndated, keywords, maxHops);
-        setActorRelationships(response.relationships);
-        setActorTotalBeforeFilter(response.totalBeforeFilter);
+        setSearching(true);
+        const results = await searchElectionEntities(searchQuery);
+        setSearchResults(results);
       } catch (error) {
-        console.error('Error loading actor relationships:', error);
-        setActorRelationships([]);
-        setActorTotalBeforeFilter(0);
+        console.error("Search failed:", error);
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
       }
-    };
+    }, 200);
 
-    loadActorRelationships();
-  }, [selectedActor, enabledClusterIds, enabledCategories, yearRange, includeUndated, keywords, maxHops]);
+    return () => clearTimeout(handle);
+  }, [searchQuery]);
+
+  const selectedNode = useMemo(
+    () => nodes.find((n) => n.id === selectedNodeId) || null,
+    [nodes, selectedNodeId],
+  );
 
   return (
     <div className="flex h-screen bg-gray-900 text-white">
-      {/* Desktop Sidebar - hidden on mobile */}
-      <div className="hidden lg:block">
-        <Sidebar
-          stats={stats}
-          selectedActor={selectedActor}
-          onActorSelect={setSelectedActor}
-          limit={limit}
-          onLimitChange={setLimit}
-          maxHops={maxHops}
-          onMaxHopsChange={setMaxHops}
-          minDensity={minDensity}
-          onMinDensityChange={setMinDensity}
-          tagClusters={tagClusters}
-          enabledClusterIds={enabledClusterIds}
-          onToggleCluster={toggleCluster}
-          enabledCategories={enabledCategories}
-          onToggleCategory={toggleCategory}
-          yearRange={yearRange}
-          onYearRangeChange={setYearRange}
-          includeUndated={includeUndated}
-          onIncludeUndatedChange={setIncludeUndated}
-          keywords={keywords}
-          onKeywordsChange={setKeywords}
-        />
-      </div>
+      <aside className="w-80 bg-gray-800 border-r border-gray-700 flex flex-col">
+        <div className="p-4 border-b border-gray-700">
+          <h1 className="text-xl font-bold text-blue-400">Election Money Explorer</h1>
+          <p className="text-sm text-gray-300 mt-1">
+            See which donors, PACs, and companies fund which candidates.
+          </p>
+        </div>
 
-      {/* Main Graph Area */}
-      <div className="flex-1 relative pb-16 lg:pb-0">
+        <div className="p-4 border-b border-gray-700">
+          <label className="block text-sm text-gray-400 mb-2">Search entities</label>
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Start typing a name..."
+            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+          />
+          {searchQuery.trim().length >= 2 && (
+            <div className="mt-2 bg-gray-700 border border-gray-600 rounded-lg max-h-64 overflow-y-auto">
+              {searching ? (
+                <div className="px-3 py-2 text-sm text-gray-400">Searching...</div>
+              ) : searchResults.length === 0 ? (
+                <div className="px-3 py-2 text-sm text-gray-400">No matches</div>
+              ) : (
+                searchResults.map((result) => (
+                  <button
+                    key={result.id}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-600 transition-colors"
+                    onClick={() => {
+                      setSelectedNodeId(result.id);
+                      setSearchQuery("");
+                      setSearchResults([]);
+                    }}
+                  >
+                    <div className="font-medium">{result.name}</div>
+                    <div className="text-xs text-gray-400">
+                      {result.type ? result.type : "unknown"}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="p-4 border-b border-gray-700">
+          <div className="flex justify-between text-sm text-gray-400">
+            <span>Nodes</span>
+            <span className="text-white">{nodes.length.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between text-sm text-gray-400 mt-1">
+            <span>Links</span>
+            <span className="text-white">{links.length.toLocaleString()}</span>
+          </div>
+        </div>
+
+        {selectedNode && (
+          <div className="p-4 space-y-2">
+            <div className="text-xs text-gray-400 uppercase">Selected</div>
+            <div className="text-lg font-semibold">{selectedNode.name}</div>
+            <div className="text-sm text-gray-300">Type: {selectedNode.type || "unknown"}</div>
+            <div className="text-sm text-gray-300">
+              In: ${selectedNode.total_in?.toLocaleString() ?? "0"}
+            </div>
+            <div className="text-sm text-gray-300">
+              Out: ${selectedNode.total_out?.toLocaleString() ?? "0"}
+            </div>
+            <button
+              className="mt-2 px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm hover:bg-gray-600 transition-colors"
+              onClick={() => setSelectedNodeId(null)}
+            >
+              Clear selection
+            </button>
+          </div>
+        )}
+      </aside>
+
+      <main className="flex-1 relative">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+              <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500 mx-auto mb-4" />
               <p className="text-gray-400">Loading network data...</p>
             </div>
           </div>
         ) : (
           <NetworkGraph
-            relationships={relationships}
-            selectedActor={selectedActor}
-            onActorClick={handleActorClick}
-            minDensity={minDensity}
-            actorTotalCounts={actorTotalCounts}
+            nodes={nodes}
+            links={links}
+            selectedNodeId={selectedNodeId}
+            onSelectNode={setSelectedNodeId}
           />
         )}
-      </div>
-
-      {/* Desktop Right Sidebar - hidden on mobile */}
-      {selectedActor && (
-        <div className="hidden lg:block">
-          <RightSidebar
-            selectedActor={selectedActor}
-            relationships={actorRelationships}
-            totalRelationships={actorTotalBeforeFilter}
-            onClose={() => setSelectedActor(null)}
-            yearRange={yearRange}
-          />
-        </div>
-      )}
-
-      {/* Mobile Bottom Navigation - shown only on mobile */}
-      <div className="lg:hidden">
-        <MobileBottomNav
-          stats={stats}
-          selectedActor={selectedActor}
-          onActorSelect={setSelectedActor}
-          limit={limit}
-          onLimitChange={setLimit}
-          tagClusters={tagClusters}
-          enabledClusterIds={enabledClusterIds}
-          onToggleCluster={toggleCluster}
-          enabledCategories={enabledCategories}
-          onToggleCategory={toggleCategory}
-          relationships={selectedActor ? actorRelationships : relationships}
-        />
-      </div>
-
-      {/* Welcome Modal */}
-      <WelcomeModal isOpen={showWelcome} onClose={handleCloseWelcome} />
+      </main>
     </div>
   );
 }
