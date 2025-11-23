@@ -1,4 +1,4 @@
-import type { ElectionGraphResponse } from "./types";
+import type { Actor, Document, ElectionGraphResponse } from "./types";
 
 export const API_BASE = "http://localhost:3001";
 
@@ -10,7 +10,8 @@ export async function fetchElectionGraph(limit: number = 150): Promise<ElectionG
   if (!res.ok) {
     throw new Error("Failed to fetch election graph");
   }
-  return res.json();
+  const data: ElectionGraphResponse = await res.json();
+  return data;
 }
 
 export interface SearchResult {
@@ -23,9 +24,27 @@ export async function searchElectionEntities(query: string): Promise<SearchResul
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  const res = await fetch(`${API_BASE}/api/elections/search?q=${encodeURIComponent(trimmed)}`);
+  const res = await fetch(`${API_BASE}/api/elections/search?query=${encodeURIComponent(trimmed)}`);
   if (!res.ok) {
     throw new Error("Failed to search entities");
   }
-  return res.json();
+  const data: SearchResult[] = await res.json();
+  return data;
+}
+
+// Legacy compatibility helpers for components that expect Epstein-era APIs
+export async function searchActors(query: string): Promise<Actor[]> {
+  const results = await searchElectionEntities(query);
+  return results.map((r) => ({
+    name: r.name,
+    connection_count: 0,
+  }));
+}
+
+export async function fetchDocument(_docId: string): Promise<Document> {
+  throw new Error("Document API is not implemented for Election Money Explorer");
+}
+
+export async function fetchDocumentText(_docId: string): Promise<{ text: string }> {
+  throw new Error("Document text API is not implemented for Election Money Explorer");
 }

@@ -9,12 +9,38 @@ app.use(express.json());
 // elections.db lives one level up from the backend folder
 const db = new Database("../elections.db");
 
+interface ElectionNode {
+  id: number;
+  name: string;
+  type: string | null;
+  total_in: number | null;
+  total_out: number | null;
+}
+
+interface ElectionLink {
+  id: number;
+  source: number;
+  target: number;
+  total_amount: number;
+}
+
+interface ElectionSearchResult {
+  id: number;
+  name: string;
+  type: string | null;
+}
+
+interface ElectionGraphResponse {
+  nodes: ElectionNode[];
+  links: ElectionLink[];
+}
+
 // Returns nodes + edges limited by "limit" param
 app.get("/api/elections/graph", (req, res) => {
   const limit = Number(req.query.limit) || 150;
 
   const nodes = db
-    .prepare(
+    .prepare<[number], ElectionNode>(
       `
     SELECT 
       id,
@@ -33,32 +59,35 @@ app.get("/api/elections/graph", (req, res) => {
 
   const ids = nodes.map((n) => n.id);
   const placeholders = ids.map(() => "?").join(",");
+  const params: number[] = [...ids, ...ids];
 
-  const links = db
-    .prepare(
+  const linksStmt = db
+    .prepare<number[], ElectionLink>(
       `
     SELECT 
       id,
       source_entity_id AS source,
       target_entity_id AS target,
-      total_amount AS amount
+      total_amount
     FROM edges
     WHERE source_entity_id IN (${placeholders})
       AND target_entity_id IN (${placeholders})
   `,
-    )
-    .all(...ids, ...ids);
+    );
+  const links = linksStmt.all(...params);
 
-  res.json({ nodes, links });
+  const response: ElectionGraphResponse = { nodes, links };
+
+  res.json(response);
 });
 
 // Simple search for entities by name
 app.get("/api/elections/search", (req, res) => {
-  const q = (req.query.q || "").toString().trim();
+  const q = (req.query.query ?? req.query.q ?? "").toString().trim();
   if (!q) return res.json([]);
 
   const rows = db
-    .prepare(
+    .prepare<[string], ElectionSearchResult>(
       `
     SELECT id, name, type
     FROM entities

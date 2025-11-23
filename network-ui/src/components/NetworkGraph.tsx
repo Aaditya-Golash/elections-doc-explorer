@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as d3 from "d3";
-import type { ElectionEdge, ElectionNode } from "../types";
+import type { ElectionLink, ElectionNode } from "../types";
 
 interface Props {
   nodes: ElectionNode[];
-  links: ElectionEdge[];
+  links: ElectionLink[];
   selectedNodeId: number | null;
   onSelectNode: (id: number) => void;
 }
@@ -39,7 +39,7 @@ export default function NetworkGraph({ nodes, links, selectedNodeId, onSelectNod
 
     const amountScale = d3
       .scaleSqrt()
-      .domain([1, d3.max(graphData.links, (d) => d.amount) || 1])
+      .domain([1, d3.max(graphData.links, (d) => d.total_amount) || 1])
       .range([1, 6]);
 
     const colorByType = (type: string | null) => {
@@ -87,11 +87,11 @@ export default function NetworkGraph({ nodes, links, selectedNodeId, onSelectNod
     const link = g
       .append("g")
       .attr("stroke", "#475569")
-      .attr("stroke-width", (d) => amountScale(Math.max(d.amount, 1)))
       .selectAll("line")
       .data(graphData.links)
       .enter()
-      .append("line");
+      .append("line")
+      .attr("stroke-width", (d) => amountScale(Math.max(d.total_amount ?? 0, 1)));
 
     const node = g
       .append("g")

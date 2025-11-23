@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import NetworkGraph from "./components/NetworkGraph";
 import { fetchElectionGraph, searchElectionEntities, type SearchResult } from "./api";
-import type { ElectionNode, ElectionEdge } from "./types";
+import type { ElectionNode, ElectionLink } from "./types";
 
 function App() {
   const [nodes, setNodes] = useState<ElectionNode[]>([]);
-  const [links, setLinks] = useState<ElectionEdge[]>([]);
+  const [links, setLinks] = useState<ElectionLink[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -16,11 +17,13 @@ function App() {
     const loadGraph = async () => {
       try {
         setLoading(true);
+        setError(null);
         const data = await fetchElectionGraph(150);
         setNodes(data.nodes);
         setLinks(data.links);
       } catch (error) {
         console.error("Error loading graph:", error);
+        setError("Failed to load election graph. Check that the backend is running on http://localhost:3001.");
       } finally {
         setLoading(false);
       }
@@ -70,6 +73,17 @@ function App() {
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (searchResults.length > 0) {
+                  const first = searchResults[0];
+                  setSelectedNodeId(first.id);
+                  setSearchQuery("");
+                  setSearchResults([]);
+                }
+              }
+            }}
             placeholder="Start typing a name..."
             className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-blue-500"
           />
@@ -139,6 +153,15 @@ function App() {
             <div className="text-center">
               <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500 mx-auto mb-4" />
               <p className="text-gray-400">Loading network data...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center space-y-2">
+              <p className="text-red-400 font-semibold">{error}</p>
+              <p className="text-sm text-gray-300">
+                Make sure both servers are running: backend on 3001 and frontend on 5173/5174.
+              </p>
             </div>
           </div>
         ) : (

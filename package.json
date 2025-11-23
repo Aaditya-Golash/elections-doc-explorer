@@ -11,7 +11,9 @@
     "api": "tsx api_server.ts",
     "dedupe": "tsx dedupe_actors.ts",
     "dedupe-auto": "tsx dedupe_actors_auto.ts",
-    "dedupe-llm": "tsx dedupe_with_llm.ts"
+    "dedupe-llm": "tsx dedupe_with_llm.ts",
+    "start:api": "cd backend && npm start",
+    "start:ui": "cd network-ui && npm run dev"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.37",
