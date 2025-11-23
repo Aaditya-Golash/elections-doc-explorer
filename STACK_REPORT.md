@@ -1,7 +1,7 @@
 # Comprehensive Technology Stack Report
 ## Elections Document Explorer
 
-**Report Date:** November 23, 2025  
+**Report Date:** November 23, 2024  
 **Repository:** Aaditya-Golash/elections-doc-explorer  
 **Total Lines of Code:** ~2,906 (excluding node_modules)
 
@@ -60,10 +60,10 @@ The Elections Document Explorer is a full-stack data visualization application t
 | Technology | Version | Purpose | Status |
 |------------|---------|---------|--------|
 | **Express** | 5.1.0 | Alternative server | ⚠️ Version mismatch |
-| **tsx** | 4.20.6 | TS Runner | ✅ Current |
-| **better-sqlite3** | 11.10.0 | SQLite Driver | ⚠️ Version mismatch |
+| **tsx** | 4.19.2 | TS Runner | ✅ Current |
+| **better-sqlite3** | 11.7.0 | SQLite Driver | ⚠️ Version mismatch |
 
-**Note:** There's a version inconsistency between root and backend packages for Express and better-sqlite3.
+**Note:** There's a version inconsistency between root and backend packages for Express (5.1.0 vs 4.19.2) and better-sqlite3 (11.7.0 vs 9.0.0).
 
 ### 2.3 Data Processing Stack
 
