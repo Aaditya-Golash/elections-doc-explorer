@@ -8,6 +8,7 @@ function App() {
   const [links, setLinks] = useState<ElectionLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [usePartyColors, setUsePartyColors] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -66,6 +67,18 @@ function App() {
           <p className="text-sm text-gray-300 mt-1">
             See which donors, PACs, and companies fund which candidates.
           </p>
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              id="party-toggle"
+              type="checkbox"
+              checked={usePartyColors}
+              onChange={(e) => setUsePartyColors(e.target.checked)}
+              className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+            />
+            <label htmlFor="party-toggle" className="text-sm text-gray-300 cursor-pointer">
+              Color by party (red=R, blue=D)
+            </label>
+          </div>
         </div>
 
         <div className="p-4 border-b border-gray-700">
@@ -169,6 +182,7 @@ function App() {
             nodes={nodes}
             links={links}
             selectedNodeId={selectedNodeId}
+            usePartyColors={usePartyColors}
             onSelectNode={setSelectedNodeId}
           />
         )}

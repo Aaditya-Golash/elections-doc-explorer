@@ -13,6 +13,7 @@ interface ElectionNode {
   id: number;
   name: string;
   type: string | null;
+  party: string | null;
   total_in: number | null;
   total_out: number | null;
 }
@@ -46,6 +47,11 @@ app.get("/api/elections/graph", (req, res) => {
       id,
       name,
       type,
+      CASE
+        WHEN UPPER(COALESCE(party, '')) LIKE 'D%' OR UPPER(party) LIKE '%DEM%' THEN 'D'
+        WHEN UPPER(COALESCE(party, '')) LIKE 'R%' OR UPPER(party) LIKE '%REP%' THEN 'R'
+        ELSE NULL
+      END AS party,
       COALESCE((SELECT SUM(total_amount) FROM edges WHERE target_entity_id = entities.id), 0) AS total_in,
       COALESCE((SELECT SUM(total_amount) FROM edges WHERE source_entity_id = entities.id), 0) AS total_out
     FROM entities
@@ -57,7 +63,7 @@ app.get("/api/elections/graph", (req, res) => {
 
   if (nodes.length === 0) return res.json({ nodes: [], links: [] });
 
-  const ids = nodes.map((n) => n.id);
+  const ids = nodes.map((n: ElectionNode) => n.id);
   const placeholders = ids.map(() => "?").join(",");
   const params: number[] = [...ids, ...ids];
 

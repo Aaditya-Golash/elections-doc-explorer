@@ -2,6 +2,7 @@ export interface ElectionNode {
   id: number;
   name: string;
   type: string | null;
+  party: string | null;
   total_in: number | null;
   total_out: number | null;
 }

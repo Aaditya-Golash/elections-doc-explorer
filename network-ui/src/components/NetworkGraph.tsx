@@ -7,11 +7,12 @@ interface Props {
   links: ElectionLink[];
   selectedNodeId: number | null;
   onSelectNode: (id: number) => void;
+  usePartyColors: boolean;
 }
 
 type SimNode = ElectionNode & { x?: number; y?: number; vx?: number; vy?: number; value: number };
 
-export default function NetworkGraph({ nodes, links, selectedNodeId, onSelectNode }: Props) {
+export default function NetworkGraph({ nodes, links, selectedNodeId, onSelectNode, usePartyColors }: Props) {
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   const graphData = useMemo(() => {
@@ -42,8 +43,14 @@ export default function NetworkGraph({ nodes, links, selectedNodeId, onSelectNod
       .domain([1, d3.max(graphData.links, (d) => d.total_amount) || 1])
       .range([1, 6]);
 
-    const colorByType = (type: string | null) => {
-      switch ((type || "").toLowerCase()) {
+    const colorByNode = (node: ElectionNode) => {
+      if (usePartyColors) {
+        const party = (node.party || "").toUpperCase();
+        if (party === "R") return "#ef4444"; // red
+        if (party === "D") return "#3b82f6"; // blue
+        return "#9ca3af"; // gray for unknown/others
+      }
+      switch ((node.type || "").toLowerCase()) {
         case "candidate":
           return "#3b82f6";
         case "committee":
@@ -105,7 +112,7 @@ export default function NetworkGraph({ nodes, links, selectedNodeId, onSelectNod
     node
       .append("circle")
       .attr("r", (d) => radiusScale(d.value))
-      .attr("fill", (d) => colorByType(d.type))
+      .attr("fill", (d) => colorByNode(d))
       .attr("stroke", "#0f172a")
       .attr("stroke-width", 1);
 
