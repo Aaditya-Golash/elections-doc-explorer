@@ -61,9 +61,9 @@ The Elections Document Explorer is a full-stack data visualization application t
 |------------|---------|---------|--------|
 | **Express** | 5.1.0 | Alternative server | ⚠️ Version mismatch |
 | **tsx** | 4.19.2 | TS Runner | ✅ Current |
-| **better-sqlite3** | 11.7.0 | SQLite Driver | ⚠️ Version mismatch |
+| **better-sqlite3** | 11.10.0 (^11.7.0) | SQLite Driver | ⚠️ Version mismatch |
 
-**Note:** There's a version inconsistency between root and backend packages for Express (5.1.0 vs 4.19.2) and better-sqlite3 (11.7.0 vs 9.0.0).
+**Note:** There's a version inconsistency between root and backend packages for Express (5.1.0 vs 4.19.2) and better-sqlite3 (11.10.0 vs 9.0.0).
 
 ### 2.3 Data Processing Stack
 
