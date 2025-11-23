@@ -370,7 +370,7 @@ export default function RightSidebar({ ... }) {
 
 1. **Unused variables** (Lines 181, 197, 213)
 ```typescript
-const matchIndex = text.indexOf(lowerName, currentPos);  // ❌ Not used
+const matchIndex = matchCount++;  // ❌ Variable declared but never used
 ```
 
 2. **Missing dependency warning** (Line 124)
@@ -383,12 +383,12 @@ useEffect(() => {
 
 **Recommendations:**
 ```typescript
-// Remove unused variables
+// Remove unused variables - just increment matchCount directly
 if (index !== -1) {
-  // Just check if found, don't store matchIndex
+  matchCount++;  // No need to store in matchIndex
   parts.push(
     text.substring(currentPos, index),
-    <mark key={markKey++}>{text.substring(index, index + lowerName.length)}</mark>
+    <mark key={matchCount}>{text.substring(index, index + lowerName.length)}</mark>
   );
   currentPos = index + lowerName.length;
 }
